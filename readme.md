@@ -35,7 +35,7 @@ T-System/
 
 ## Example script GameStop.py 
 
-![image](https://github.com/user-attachments/assets/d8c4c43c-9d48-40d4-b11e-3902565f0e45)
+![image](https://github.com/user-attachments/assets/e76d74f9-ae57-4ca2-a4c6-bc49b9a373c8)
 ![image](https://github.com/user-attachments/assets/d86fd36b-88e1-433c-8662-12930ecba1ec)
 ![image](https://github.com/user-attachments/assets/0c273b25-5289-40bc-ab7d-7564c59dc0fc)
 ![image](https://github.com/user-attachments/assets/67306f2f-e49c-46ab-88f2-f71b01f81856)
