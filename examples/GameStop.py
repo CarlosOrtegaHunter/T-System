@@ -46,7 +46,7 @@ edate = "2021-01-20"
 
 plot = StockPlotter(GME, sdate, edate)
 plot.price()
-plot.plot_volume(exchange="CHX", cumulative=True)
+plot.volume(exchange="CHX", cumulative=True)
 plot.events()
 plot.show("Ryan Cohen's acquisition")
 
@@ -57,7 +57,7 @@ plot.show("Ryan Cohen's acquisition")
 
 plot = StockPlotter(GME, "2024-04-01", "2024-08-20")
 plot.price()
-plot.plot_volume(exchange="CHX")
+plot.volume(exchange="CHX")
 plot.events()
 plot.signal(GME.Options['Call Volume'])
 plot.show("Roaring Kitty's return (Call Volume and CHX Volume)")
@@ -81,10 +81,10 @@ plot.show("Bullish Options Indicator")
 ########################################################################
 
 call_OI = GME.Options['Call OI']
-call_OI[split_dividend.date:] /= 4
+call_OI[:split_dividend.date] *= 4
 
 plot = StockPlotter(GME, "2019-01-01")
 plot.price()
 plot.events()
 plot.signal(call_OI)
-plot.show("Historical GME")
+plot.show("Historical GME & Call OI (split-adjusted retroactively)")

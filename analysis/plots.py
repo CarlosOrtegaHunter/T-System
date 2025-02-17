@@ -68,7 +68,7 @@ class StockPlotter:
             end = self.end_date
         return start, end
 
-    def plot_volume(self, start_date=None, end_date=None, min_volume=0, exchange="CHX", cumulative=False):
+    def volume(self, start_date=None, end_date=None, min_volume=0, exchange="CHX", cumulative=False):
         """Plots exchange trading volume on the left y-axis."""
         start_date, end_date = self._time_window(start_date, end_date)
         data = self.stock.get_historical_volumes(start_date, end_date)
