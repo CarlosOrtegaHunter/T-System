@@ -73,6 +73,7 @@ class StockPlotter:
         start_date, end_date = self._time_window(start_date, end_date)
         data = self.stock.get_historical_volumes(start_date, end_date)
         # todo: test boolean mask works well with cs
+        # todo: show y label when signal is plotted?
 
         csvolume = ContinuousSignal(f"{exchange} Volume", data.select(pl.col(['date', exchange.lower()])))
         if cumulative:
