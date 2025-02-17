@@ -1,4 +1,4 @@
-# T-System 🚧
+# T-System 🚧 (under construction)
 
 T-System is a lightweight Python-based, object-oriented financial data processing framework designed for historical (and upcoming real-time) market analysis. The design prioritizes flexibility without compromising efficiency.
 
