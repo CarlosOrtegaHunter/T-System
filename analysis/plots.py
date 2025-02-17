@@ -89,7 +89,7 @@ class StockPlotter:
         self._setup_y_axis(self.ax_left, formatter)
 
         self.ax_left.set_title(f"{exchange} Volume ({start_date} to {end_date})" + (" - Cumulative" if cumulative else ""), pad=10)
-        self.ax_left.set_ylabel(f"{exchange} Volume (in millions)")
+        self.ax_left.set_ylabel(f"{exchange} Volume (in millions)" + (" - Cumulative" if cumulative else ""))
 
         self._hide_unused_axes()
         #return data[exchange].values[-1]
