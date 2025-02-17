@@ -6,6 +6,7 @@ T-System is a lightweight Python-based, object-oriented financial data processin
 - **Core (`core/`)**: Implements `Equity`, `Options`, `Event`, for structured market data using an object-oriented approach. The class `ContinuousSignal` provides a lazy frame wrapper for time series data.  
 - **Analysis (`analysis/`)**: Provides tools for data visualization (`plots.py`) leveraging matplotlib, with support for price, volume, events and signals.
 
+WARNING: For now, it tries to fetch data from Yahoo Finance every time it is executed. If the daily limit is reached, price data might not be shown. 
 ## 📂 Project Structure
 
 ```
