@@ -109,7 +109,7 @@ class StockPlotter:
         self._setup_y_axis(self.ax_left, formatter)
 
         self.ax_left.set_title(f"{signal.label} ({start_date} to {end_date})" + (" - Cumulative" if cumulative else ""), pad=10)
-        self.ax_left.set_ylabel(f"{signal.label}", color=color)
+        self.ax_left.set_ylabel(f"{signal.label}" + (" - Cumulative" if cumulative else ""), color=color)
 
         self._hide_unused_axes()
         return signal[-1] if cumulative else signal[-1]
