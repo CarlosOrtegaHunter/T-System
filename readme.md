@@ -38,7 +38,7 @@ T-System/
 ![image](https://github.com/user-attachments/assets/e76d74f9-ae57-4ca2-a4c6-bc49b9a373c8)
 ![image](https://github.com/user-attachments/assets/d86fd36b-88e1-433c-8662-12930ecba1ec)
 ![image](https://github.com/user-attachments/assets/0c273b25-5289-40bc-ab7d-7564c59dc0fc)
-![image](https://github.com/user-attachments/assets/67306f2f-e49c-46ab-88f2-f71b01f81856)
+![image](https://github.com/user-attachments/assets/c9799645-beef-4e39-8a58-5f8664cb91e2)
 
 ## UPCOMING
 - Date operations and database integration on `ContinuousSignal`.
