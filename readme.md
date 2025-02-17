@@ -7,6 +7,7 @@ T-System is a lightweight Python-based, object-oriented financial data processin
 - **Analysis (`analysis/`)**: Provides tools for data visualization (`plots.py`) leveraging matplotlib, with support for price, volume, events and signals.
 
 WARNING: For now, it tries to fetch data from Yahoo Finance every time it is executed. If the daily limit is reached, price data might not be shown. 
+
 ## 📂 Project Structure
 
 ```
@@ -32,6 +33,13 @@ T-System/
 │__ README.md          
 ```
 
+## Example script GameStop.py 
+
+![image](https://github.com/user-attachments/assets/d8c4c43c-9d48-40d4-b11e-3902565f0e45)
+![image](https://github.com/user-attachments/assets/d86fd36b-88e1-433c-8662-12930ecba1ec)
+![image](https://github.com/user-attachments/assets/0c273b25-5289-40bc-ab7d-7564c59dc0fc)
+![image](https://github.com/user-attachments/assets/67306f2f-e49c-46ab-88f2-f71b01f81856)
+
 ## UPCOMING
 - Date operations and database integration on `ContinuousSignal`.
 - Real-time data streaming, enabling continuous market data updates.
@@ -41,3 +49,5 @@ T-System/
 
 ---
 🚧 **Under construction!**
+
+
