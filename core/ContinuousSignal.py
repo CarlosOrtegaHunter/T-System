@@ -348,7 +348,7 @@ class ContinuousSignal:
     # TODO: should return time and data in pandas or numpy?
     @property
     def time(self):
-        """Returns collected time column lazy frame """
+        """Returns time column lazy frame """
         if _TIME_SYMBOL in self.__signal.collect_schema().names():
             return self.__signal.select(_TIME_SYMBOL)
         elif self.__label == _TEMP_OBJECT_LABEL:
