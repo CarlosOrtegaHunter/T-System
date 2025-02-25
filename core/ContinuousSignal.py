@@ -240,7 +240,7 @@ class ContinuousSignal:
             value = pl.Series(value)
 
         if isinstance(value, pl.Series):
-            value.to_frame(name=_DATA_SYMBOL).lazy()
+            value = value.to_frame(name=_DATA_SYMBOL).lazy()
 
         if isinstance(value, pl.DataFrame):
             value = value.lazy()
