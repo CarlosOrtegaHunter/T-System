@@ -40,12 +40,16 @@ T-System/
 ![image](https://github.com/user-attachments/assets/0c273b25-5289-40bc-ab7d-7564c59dc0fc)
 ![image](https://github.com/user-attachments/assets/c9799645-beef-4e39-8a58-5f8664cb91e2)
 
-## UPCOMING
-- Date operations and database integration on `ContinuousSignal`.
-- Real-time data streaming, enabling continuous market data updates.
-- Dash web visualization with historical and real-time updates.
+## UNDER CONSTRUCTION 
+- Date operations on `ContinuousSignal`. 
+- database integration for OHLCV data. 
+- Real-time data streaming. 
 - API integration.
 - etc
+
+## CLOSED SOURCE
+- Evangelion stylized super duper cool UI
+- Algo trading engine
 
 ---
 🚧 **Under construction!**
