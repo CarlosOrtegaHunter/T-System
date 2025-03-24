@@ -285,7 +285,7 @@ class ContinuousSignal:
                 pl.when(mask).then(value).otherwise(pl.col(_DATA_SYMBOL)).alias(_DATA_SYMBOL)
             )
 
-        if isinstance(value, pl.LazyFrame):
+        elif isinstance(value, pl.LazyFrame):
 
             if _TIME_SYMBOL in value.collect_schema().names() and _DATA_SYMBOL in value.collect_schema().names():
                 # Left join to align on date, replacing where available
