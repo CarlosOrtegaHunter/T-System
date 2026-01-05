@@ -88,3 +88,12 @@ plot.price()
 plot.events()
 plot.signal(call_OI)
 plot.show("Historical GME & Call OI (split-adjusted retroactively)")
+
+
+#print(call_OI.time.collect().to_numpy())
+
+
+#print((call_OI[sdate:edate] << timedelta(days=100)).time.collect().to_numpy())
+
+#1. get item
+# 2. lshift
