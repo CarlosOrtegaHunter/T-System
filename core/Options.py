@@ -62,7 +62,9 @@ class Options:
         # TODO: check whether the data is available within time window, for now assuming the data are the same
         if "overview" in self.data:
             df = self.data['overview']
-            df = df[(df['date'] >= start_date) & (df['date'] <= end_date)]
+            df = df.filter(
+                (pl.col("date") >= start_date) & (pl.col("date") <= end_date)
+            )
             return df
 
         options_overview = readers.CSV.from_pattern_concatenate(f'options/{self.underlying.ticker.lower()}/{self.underlying.ticker.lower()}' + self._overview_pattern)

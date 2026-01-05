@@ -14,11 +14,18 @@ def lowercase_columns(df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame]):
 
 def datetime_index(df: Union[pl.DataFrame, pl.LazyFrame]) -> Union[pl.DataFrame, pl.LazyFrame]:
     if df.collect_schema()['date'] == pl.Datetime: return df
-    return df.with_columns(pl.col("date").str.to_datetime())
+    try:
+        return df.with_columns(pl.col("date").str.to_datetime())
+    except pl.exceptions.ComputeError as e:
+        raise ValueError(f"Failed to convert 'date' column to datetime: {e}") from e
 
 def string_index(df: Union[pl.DataFrame, pl.LazyFrame]) -> Union[pl.DataFrame, pl.LazyFrame]:
     if df.collect_schema()['date'] == pl.Utf8: return df
-    return df.with_columns(pl.col("date").cast(pl.Utf8()))
+    try:
+        return df.with_columns(pl.col("date").cast(pl.Utf8()))
+    except pl.exceptions.ComputeError as e:
+        # If date column can't be cast, it might be because it's not valid datetime
+        raise ValueError(f"Failed to convert 'date' column to string. Ensure date column is valid datetime first: {e}") from e
 
 def join_on_date(dfs: Union[list[pl.DataFrame] | list[pl.LazyFrame]]) -> pl.DataFrame | pl.LazyFrame:
     """Performs outer join of a dataframe list."""

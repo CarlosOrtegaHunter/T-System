@@ -61,18 +61,32 @@ class CSV:
     def _read_csv(file_path: Path) -> pl.DataFrame:
         """
         Reads a CSV file safely with error handling, returning a polars DataFrame.
-        If there is a 'date' column, it is set as the index.
+        Handles both 'date' and 'time' columns (time can be Unix timestamp).
         :param file_path: Absolute Path to the CSV file.
         :return: A Polars DataFrame containing the file's data.
                  Returns an empty DataFrame if the file is missing or cannot be read.
         """
         try:
             df = pd.read_csv(file_path, dtype=str) #pandas read_csv works better for now
+            original_columns = df.columns.tolist()
             df.columns = [col.lower() for col in df.columns]
             percentage_columns = []
 
+            # Handle time column (Unix timestamp) - convert to date
+            if "time" in df.columns and "date" not in df.columns:
+                # Check if time values look like Unix timestamps (large numbers)
+                sample_time = df["time"].iloc[0] if len(df) > 0 else None
+                if sample_time and sample_time.isdigit() and len(sample_time) >= 10:
+                    # Convert Unix timestamp to datetime, then normalize to date (remove time component)
+                    df["date"] = pd.to_datetime(df["time"].astype(int), unit='s').dt.normalize()
+                    df = df.drop(columns=["time"])
+                else:
+                    # Treat as regular datetime string
+                    df["date"] = pd.to_datetime(df["time"], errors='coerce').dt.normalize()
+                    df = df.drop(columns=["time"])
+
             for col in df.columns:
-                if col != "date":
+                if col != "date" and col != "time":
                     if df[col].astype(str).str.contains("%").any():
                         percentage_columns.append(col)
                         df[col] = df[col].str.replace("%", "", regex=True).str.strip()

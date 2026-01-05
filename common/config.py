@@ -22,4 +22,5 @@ logging.basicConfig(
     ]
 )
 
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logger = logging.getLogger("T-System")
