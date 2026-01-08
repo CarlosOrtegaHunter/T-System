@@ -4,12 +4,29 @@ import random
 from datetime import timedelta
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import dash_canvas
 
-import mpld3
-import plotly.io as pio
-import plotly.graph_objects as go
-from dash import html
+# Optional dependencies for interactive/HTML output.
+try:
+    import dash_canvas
+except ImportError:
+    dash_canvas = None
+
+try:
+    import mpld3
+except ImportError:
+    mpld3 = None
+
+try:
+    import plotly.io as pio
+    import plotly.graph_objects as go
+except ImportError:
+    pio = None
+    go = None
+
+try:
+    from dash import html
+except ImportError:
+    html = None
 
 import polars as pl
 import pandas as pd
@@ -109,7 +126,10 @@ class StockPlotter:
 
     def signal(self, signal: ContinuousSignal, start_date=None, end_date=None, cumulative=False, color='blue') -> int:
         """Plots a ContinuousSignal on the left y-axis."""
+        # Normalize window relative to the stock's calendar, always using datetimes.
         start_date, end_date = self._time_window(start_date, end_date)
+        start_date, end_date = self.stock.time_window(start_date, end_date)
+
         ts = signal[start_date: end_date]
 
         formatter = BigNumberFormatter(signal.data)

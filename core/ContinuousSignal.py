@@ -1,5 +1,6 @@
 import numbers
 from types import MappingProxyType
+from datetime import timedelta
 
 import numpy as np
 import polars as pl
@@ -530,6 +531,23 @@ class ContinuousSignal:
     def __ge__(self, other):
         return self._apply_operation(self, other, '>=')
 
+    # Time shift operations
+    def __lshift__(self, other):
+        """
+        Index-based date shift backward.
+        `cs << n` shifts each observation to the timestamp that is `n` rows earlier
+        in the sorted time index, independent of the underlying calendar.
+        """
+        return self._time_shift(other, reverse=True)
+
+    def __rshift__(self, other):
+        """
+        Index-based date shift forward.
+        `cs >> n` shifts each observation to the timestamp that is `n` rows later
+        in the sorted time index, independent of the underlying calendar.
+        """
+        return self._time_shift(other, reverse=False)
+
     _OPS_CACHE = {
         "+": lambda x, y: x + y,
         "-": lambda x, y: x - y,
@@ -586,3 +604,92 @@ class ContinuousSignal:
             )
 
         raise TypeError(f"Unsupported operand type: {type(other)}")
+
+    def _time_shift(self, other, reverse: bool = False):
+        """
+        Index/slot-based time shift.
+
+        - Integer/float `other` is interpreted as a shift in *rows* of the sorted time index.
+          This is calendar-agnostic and works for any market/calendar (US, EU, crypto, intraday, etc.).
+
+            cs >> 35  # move each observation to the timestamp 35 rows later
+            cs << 10  # move each observation to the timestamp 10 rows earlier
+
+        - timedelta / Timedelta / pl.Duration perform true calendar/time shifts and are
+          handled via datetime arithmetic on the `_TIME_SYMBOL` column.
+        """
+        # Calendar/time-based shift
+        if isinstance(other, (timedelta, pd.Timedelta, pl.Duration)):
+            if isinstance(other, timedelta):
+                shift_expr = pl.duration(days=other.days,
+                                         seconds=other.seconds,
+                                         microseconds=other.microseconds)
+            elif isinstance(other, pd.Timedelta):
+                total_seconds = other.total_seconds()
+                days = int(total_seconds // 86400)
+                seconds = int(total_seconds % 86400)
+                microseconds = int((total_seconds % 1) * 1_000_000)
+                shift_expr = pl.duration(days=days,
+                                         seconds=seconds,
+                                         microseconds=microseconds)
+            else:
+                # Already a pl.Duration
+                shift_expr = other
+
+            if reverse:
+                new_signal = self.__signal.with_columns(
+                    (pl.col(_TIME_SYMBOL) - shift_expr).alias(_TIME_SYMBOL)
+                )
+            else:
+                new_signal = self.__signal.with_columns(
+                    (pl.col(_TIME_SYMBOL) + shift_expr).alias(_TIME_SYMBOL)
+                )
+
+            return ContinuousSignal(
+                _TEMP_OBJECT_LABEL,
+                new_signal,
+                self.__ticker,
+                self.metadata,
+                self.keep_when_dropping_duplicates,
+                by_ref=True
+            )
+
+        # Index/slot-based shift
+        if isinstance(other, (int, float)):
+            offset = int(other)
+
+            if offset == 0:
+                return ContinuousSignal(
+                    _TEMP_OBJECT_LABEL,
+                    self.__signal,
+                    self.__ticker,
+                    self.metadata,
+                    self.keep_when_dropping_duplicates,
+                    by_ref=True
+                )
+
+            # Use row-wise shift on the timestamp column (no join, purely index-based)
+            if reverse:
+                # cs << n  => map each row to timestamp at row_idx - n
+                shifted_dates = pl.col(_TIME_SYMBOL).shift(offset)
+            else:
+                # cs >> n  => map each row to timestamp at row_idx + n
+                shifted_dates = pl.col(_TIME_SYMBOL).shift(-offset)
+
+            new_signal = self.__signal.with_columns(
+                pl.when(shifted_dates.is_not_null())
+                .then(shifted_dates)
+                .otherwise(pl.col(_TIME_SYMBOL))
+                .alias(_TIME_SYMBOL)
+            )
+
+            return ContinuousSignal(
+                _TEMP_OBJECT_LABEL,
+                new_signal,
+                getattr(self, "_ContinuousSignal__ticker", None),
+                getattr(self, "metadata", None),
+                getattr(self, "keep_when_dropping_duplicates", None),
+                by_ref=True
+            )
+
+        raise TypeError(f"Unsupported type for time shifting: {type(other)}")

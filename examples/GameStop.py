@@ -1,3 +1,9 @@
+import os
+import sys
+
+# Ensure project root is on sys.path when running as a script
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from analysis.plots import *
 from core import Equity, Event, ContinuousSignal
 
@@ -97,3 +103,21 @@ plot.show("Historical GME & Call OI (split-adjusted retroactively)")
 
 #1. get item
 # 2. lshift
+
+########################################################################
+#          EXAMPLE: T+35 FTD CYCLE ANALYSIS USING DATE SHIFTING        #
+########################################################################
+
+# T+35 FTD cycle: SEC requires FTD positions to be closed within 35 trading days.
+# Here, >> 35 shifts by 35 *rows* in the time index (trading days for daily OHLCV).
+
+price_data = GME.get_historical_price("2020-01-01", "2021-06-30")
+close_price = ContinuousSignal("GME Close Price", price_data.select(['date', 'close']))
+t35_shifted = (close_price >> 35).settle("GME Close Price (T+35)")
+
+plot = StockPlotter(GME, "2020-03-01", "2021-06-30")
+plot.price()
+plot.signal(close_price, start_date="2020-03-01", end_date="2021-06-30")
+plot.signal(t35_shifted, color='orange', start_date="2020-03-01", end_date="2021-06-30")
+plot.events()
+plot.show("T+35 FTD Cycle Analysis")
