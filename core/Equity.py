@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Union
+from typing import Union, Optional
 
 from sortedcontainers import SortedList
 import polars as pl
@@ -9,18 +9,10 @@ import polars as pl
 from common import readers
 from common.config import logger
 from common.utils import datetime_index
-from common.polygon_provider import get_polygon_provider
+from common.provider_chain import ProviderChain, get_default_provider_chain
+from common.providers import ProviderError
 from core.Event import Event
 from core.ContinuousSignal import ContinuousSignal
-
-# Fallback to yfinance if Polygon.io is not available
-try:
-    import yfinance as yf
-    from yfinance.exceptions import YFRateLimitError
-    YFINANCE_AVAILABLE = True
-except ImportError:
-    YFINANCE_AVAILABLE = False
-    logger.warning("yfinance not available. Using Polygon.io only.")
 
 class Equity:
     _instances = {}
@@ -43,7 +35,7 @@ class Equity:
             cls._instances[ticker] = instance
             return instance
 
-    def __init__(self, ticker: str, name: str = None, data: dict = None, earliest_date: str = None):
+    def __init__(self, ticker: str, name: str = None, data: dict = None, earliest_date: str = None, provider: Optional[ProviderChain] = None):
         """
         Initialize an Equity object.
 
@@ -51,6 +43,7 @@ class Equity:
         :param name: Full name of the equity.
         :param data: Dictionary where keys are names ("price", "volume") and values are ContinuousSignals.
         :param earliest_date: Earliest date for data loading.
+        :param provider: ProviderChain to use for fetching data. If None, uses default chain (Parquet -> Polygon -> yfinance).
         """
         if hasattr(self, 'initialized') and self.initialized:
             return  # Prevent re-initialization
@@ -61,6 +54,9 @@ class Equity:
         self.events = SortedList(key=lambda event: event.date)
         self.continuousSignals = []
         self.earliest_datetime = datetime.strptime(earliest_date, "%Y-%m-%d") if earliest_date else datetime.strptime("2020-01-01", "%Y-%m-%d")
+        
+        # Use provided provider chain or default
+        self.provider = provider if provider is not None else get_default_provider_chain()
 
         self.get_historical_volumes(earliest_date)
         self.get_historical_price(earliest_date)
@@ -70,7 +66,12 @@ class Equity:
 
     def get_historical_price(self, start_date, end_date=None) -> pl.DataFrame:
         """
-        Fetches historical daily price data using Polygon.io (with yfinance fallback).
+        Fetches historical daily price data using the configured provider chain.
+        
+        The provider chain tries providers in order until one succeeds:
+        1. ParquetProvider (local CSV/Parquet files)
+        2. PolygonProvider (Polygon.io API)
+        3. YFinanceProvider (yfinance as fallback)
         """
         start_date, end_date = self.time_window(start_date, end_date)
         
@@ -101,101 +102,45 @@ class Equity:
                 if not filtered.is_empty():
                     return filtered
         
-        # Fetch fresh data for the requested range
-        # First, try to load from local equity CSV files
+        # Fetch fresh data using provider chain
         try:
-            # Look for equity data in equity/{ticker}/ folder
-            # Try common patterns: BATS_{TICKER}, 1D.csv or {ticker}_*.csv
-            equity_files = readers.CSV.from_pattern(f'equity/{self.ticker.lower()}/*.csv')
-            if equity_files:
-                # Concatenate all equity files for this ticker
-                data = readers.CSV.from_pattern_concatenate(f'equity/{self.ticker.lower()}/*.csv')
-                if not data.is_empty():
-                    # Ensure date column exists and is datetime
-                    data = datetime_index(data)
-                    # Standardize column names (handle Volume vs volume, etc.)
-                    if 'volume' not in data.columns and 'Volume' in data.columns:
-                        data = data.rename({'Volume': 'volume'})
-                    # Ensure we have required columns
-                    required_cols = ['date', 'open', 'high', 'low', 'close', 'volume']
-                    if all(col in data.columns for col in required_cols):
-                        # Convert start_date and end_date to datetime for comparison
-                        if isinstance(start_date, str):
-                            start_date_dt = datetime.strptime(start_date, "%Y-%m-%d")
-                        elif isinstance(start_date, datetime):
-                            start_date_dt = start_date
-                        else:
-                            start_date_dt = start_date
-                        
-                        if isinstance(end_date, str):
-                            end_date_dt = datetime.strptime(end_date, "%Y-%m-%d")
-                        elif isinstance(end_date, datetime):
-                            end_date_dt = end_date
-                        else:
-                            end_date_dt = end_date
-                        
-                        # Filter to requested date range (compare datetime to datetime)
-                        filtered = data.filter(
-                            (pl.col("date") >= start_date_dt) & (pl.col("date") <= end_date_dt)
-                        )
-                        if not filtered.is_empty():
-                            # Cache the full dataset
-                            if "price" not in self.data or self.data['price'].is_empty():
-                                self.data['price'] = data
-                            logger.info(f"Successfully loaded {self.ticker} data from local CSV files")
-                            return filtered
-        except Exception as e:
-            logger.debug(f"No local equity CSV found for {self.ticker}: {e}")
-        
-        #data = obb.equity.price.historical(symbol=self.ticker, start_date=start_date, end_date=end_date)
-        
-        # Try Polygon.io first
-        polygon_provider = get_polygon_provider()
-        data = None
-        
-        if polygon_provider.client:
-            try:
-                logger.debug(f"Fetching {self.ticker} data from Polygon.io for range {start_date} to {end_date}")
-                data = polygon_provider.download(self.ticker, start=start_date, end=end_date)
-                if not data.empty:
-                    data = data.reset_index()
-                    data.columns = [col[0].lower() if isinstance(col, tuple) else col.lower() for col in data.columns]
-                    # Rename 'date' column if it exists, otherwise use index
-                    if 'date' not in data.columns and 'Date' in data.columns:
-                        data = data.rename(columns={'Date': 'date'})
-                    elif 'date' not in data.columns:
-                        data = data.reset_index()
-                        if 'timestamp' in data.columns:
-                            data = data.rename(columns={'timestamp': 'date'})
-                    # Cache the data
-                    if "price" not in self.data or self.data['price'].is_empty():
-                        self.data['price'] = pl.from_pandas(data)
-                    logger.info(f"Successfully fetched {self.ticker} data from Polygon.io")
-                    return pl.from_pandas(data)
-            except Exception as e:
-                logger.warning(f"Polygon.io fetch failed for {self.ticker}: {e}. Falling back to yfinance.")
+            data = self.provider.fetch_ohlcv(
+                self.ticker,
+                start=start_date,
+                end=end_date,
+                interval="1d",
+                adjusted=True
+            )
             
-            # Fallback to yfinance if Polygon.io fails or is not available
-            if YFINANCE_AVAILABLE:
-                try:
-                    logger.debug(f"Fetching {self.ticker} data from yfinance")
-                    data = yf.download(self.ticker, start=start_date, end=end_date)
-                    data = data.reset_index()
-                    data.columns = [col[0].lower() if isinstance(col, tuple) else col.lower() for col in data.columns]
-                    if 'date' not in data.columns and 'Date' in data.columns:
-                        data = data.rename(columns={'Date': 'date'})
-                    self.data['price'] = pl.from_pandas(data)
-                except YFRateLimitError:
-                    self.data['price'] = pl.DataFrame({"date": [], "open": [], "high": [], "low": [], "close": [], "adj close": [], "volume": []})
-                    logger.error("Yahoo Finance rate limit reached. Please try again later or use locally stored data.")
-                except Exception as e:
-                    logger.error(f"Yahoo Finance exception when fetching data: {e}")
-                    self.data['price'] = pl.DataFrame({"date": [], "open": [], "high": [], "low": [], "close": [], "adj close": [], "volume": []})
+            # Cache the data if we got results
+            if not data.is_empty():
+                if "price" not in self.data or self.data['price'].is_empty():
+                    self.data['price'] = data
+                return data
             else:
-                logger.error("Neither Polygon.io nor yfinance available. Cannot fetch price data.")
-                self.data['price'] = pl.DataFrame({"date": [], "open": [], "high": [], "low": [], "close": [], "adj close": [], "volume": []})
-            
-            return self.data['price']
+                # Return empty DataFrame with correct schema
+                return pl.DataFrame(schema={
+                    'date': pl.Datetime,
+                    'open': pl.Float64,
+                    'high': pl.Float64,
+                    'low': pl.Float64,
+                    'close': pl.Float64,
+                    'volume': pl.Int64,
+                    'adj_close': pl.Float64
+                })
+                
+        except ProviderError as e:
+            logger.error(f"Failed to fetch price data for {self.ticker}: {e}")
+            # Return empty DataFrame with correct schema
+            return pl.DataFrame(schema={
+                'date': pl.Datetime,
+                'open': pl.Float64,
+                'high': pl.Float64,
+                'low': pl.Float64,
+                'close': pl.Float64,
+                'volume': pl.Int64,
+                'adj_close': pl.Float64
+            })
 
     def get_historical_volumes(self, start_date, end_date=None) -> pl.DataFrame:
         """

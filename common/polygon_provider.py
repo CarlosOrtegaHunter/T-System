@@ -6,10 +6,11 @@ import os
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 import pandas as pd
 import polars as pl
 from common.config import logger
+from common.providers import MarketDataProvider, ProviderError
 
 try:
     from polygon import RESTClient
@@ -19,7 +20,7 @@ except ImportError:
     logger.warning("polygon-api-client not installed. Install with: pip install polygon-api-client")
 
 
-class PolygonProvider:
+class PolygonProvider(MarketDataProvider):
     """
     Polygon.io data provider for fetching historical stock data.
     Can use API calls or download files directly.
@@ -65,6 +66,80 @@ class PolygonProvider:
             logger.warning("Polygon.io client library not available. Install with: pip install polygon-api-client")
         elif not self.api_key:
             logger.warning("Polygon.io API key not provided. Set POLYGON_API_KEY environment variable or pass api_key parameter.")
+    
+    @property
+    def name(self) -> str:
+        """Human-readable name of the provider."""
+        return "Polygon.io"
+    
+    def is_available(self) -> bool:
+        """Check if Polygon.io provider is available and configured."""
+        return POLYGON_AVAILABLE and self.api_key is not None and self.client is not None
+    
+    def fetch_ohlcv(
+        self,
+        ticker: str,
+        start: Union[str, datetime],
+        end: Union[str, datetime],
+        interval: str = "1d",
+        adjusted: bool = True
+    ) -> pl.DataFrame:
+        """
+        Fetch historical OHLCV data for a ticker.
+        
+        Returns Polars DataFrame with standardized columns: date, open, high, low, close, volume
+        (and optionally 'adj_close' if adjusted=True).
+        """
+        if not self.is_available():
+            raise ProviderError("Polygon.io provider is not available or not configured.")
+        
+        # Use existing download method and convert to Polars
+        df_pandas = self.download(ticker, start, end, interval, adjusted)
+        
+        if df_pandas.empty:
+            return pl.DataFrame(schema={
+                'date': pl.Datetime,
+                'open': pl.Float64,
+                'high': pl.Float64,
+                'low': pl.Float64,
+                'close': pl.Float64,
+                'volume': pl.Int64,
+                'adj_close': pl.Float64
+            })
+        
+        # Convert pandas DataFrame to Polars
+        # Reset index to get Date as a column
+        df_pandas = df_pandas.reset_index()
+        
+        # Standardize column names to lowercase
+        df_pandas.columns = [col.lower() if isinstance(col, str) else col[0].lower() if isinstance(col, tuple) else col 
+                             for col in df_pandas.columns]
+        
+        # Rename Date to date if needed
+        if 'date' not in df_pandas.columns and 'Date' in df_pandas.columns:
+            df_pandas = df_pandas.rename(columns={'Date': 'date'})
+        
+        # Convert to Polars
+        df_pl = pl.from_pandas(df_pandas)
+        
+        # Ensure date column is datetime
+        if 'date' in df_pl.columns:
+            df_pl = df_pl.with_columns(pl.col('date').cast(pl.Datetime))
+        
+        # Rename adj close to adj_close if present
+        if 'adj close' in df_pl.columns:
+            df_pl = df_pl.rename({'adj close': 'adj_close'})
+        
+        # Select and order columns
+        expected_cols = ['date', 'open', 'high', 'low', 'close', 'volume']
+        if adjusted and 'adj_close' in df_pl.columns:
+            expected_cols.append('adj_close')
+        
+        # Only select columns that exist
+        available_cols = [col for col in expected_cols if col in df_pl.columns]
+        df_pl = df_pl.select(available_cols)
+        
+        return df_pl
     
     def download(self, ticker: str, start: str = None, end: str = None, 
                  interval: str = "1d", adjusted: bool = True) -> pd.DataFrame:
