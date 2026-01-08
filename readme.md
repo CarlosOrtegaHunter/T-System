@@ -6,7 +6,33 @@ T-System is a lightweight Python-based, object-oriented financial data processin
 - **Core (`core/`)**: Implements `Equity`, `Options`, `Event`, for structured market data using an object-oriented approach. The class `ContinuousSignal` provides a lazy frame wrapper for time series data.  
 - **Analysis (`analysis/`)**: Provides tools for data visualization (`plots.py`) leveraging matplotlib, with support for price, volume, events and signals.
 
-WARNING: For now, it tries to fetch data from Yahoo Finance every time it is executed. If the daily limit is reached, price data might not be shown. 
+### ContinuousSignal
+
+Particularly, `ContinuousSignal` is designed for efficient operations on timeseries data using polars under the hood while retaining the ease of use of pandas, ideal for large datasets that fit in a personal computer's RAM.
+
+**Key Features:**
+- **Lazy Evaluation**: All operations are lazy until explicitly collected, enabling efficient chaining of operations
+- **Pandas-like API**: Familiar interface for data manipulation with enhanced performance
+- **Arithmetic Operations**: Supports `+`, `-`, `*`, `/`, `//`, `%`, `**` for element-wise operations
+- **Date Shifting**: Use `>>` (forward) and `<<` (backward) operators for index-based date shifting
+  - `cs >> 35` shifts each observation to the timestamp 35 rows later in the sorted time index
+  - `cs << 10` shifts each observation to the timestamp 10 rows earlier
+  - For calendar-based shifts, use `timedelta` objects: `cs >> timedelta(days=35)`
+- **Date Mapping**: Use `@` operator to map dates based on a mapping table
+
+**Example:**
+```python
+from core import ContinuousSignal, Equity
+
+GME = Equity("GME", "GameStop")
+price_data = GME.get_historical_price("2020-01-01", "2021-06-30")
+close_price = ContinuousSignal("GME Close Price", price_data.select(['date', 'close']))
+
+# Shift by 35 trading days (index-based)
+t35_shifted = (close_price >> 35).settle("GME Close Price (T+35)")
+```
+
+WARNING: Data is primarily fetched from Polygon.io. If a Polygon.io API key is not configured (via environment variable `POLYGON_API_KEY` or `polygon_config.json`), yfinance will be used as a fallback. Note that yfinance has daily rate limits. 
 
 ## 📂 Project Structure
 
@@ -41,7 +67,6 @@ T-System/
 ![image](https://github.com/user-attachments/assets/c9799645-beef-4e39-8a58-5f8664cb91e2)
 
 ## UNDER CONSTRUCTION 
-- Date operations on `ContinuousSignal`. 
 - database integration for OHLCV data. 
 - Real-time data streaming. 
 - API integration.
